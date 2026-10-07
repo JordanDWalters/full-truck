@@ -6,7 +6,7 @@ Built feature by feature; one commit per feature on `main`. Status reflects this
 |---|---|---|---|
 | 0 | Scaffold (Vite + TS + vitest), spec import | — | done |
 | 1 | `CFG_` config file, loader, validation, spec-value pinning | §2 | done |
-| 2 | Entity/state schema, seeded RNG, save model (local-first, deterministic) | §1, §0 | todo |
+| 2 | Entity/state schema, seeded RNG, save model (local-first, deterministic) | §1, §0 | done |
 | 3 | Simulation core: 5-stage bottleneck pipeline + fixed-tick loop | §3.1, §3.2 | todo |
 | 4 | Efficiency scalar + metrics (flow / error / onTime) | §3.3 | todo |
 | 5 | Layout zone graph + inverse-distance pick factor | §4 | todo |
@@ -38,3 +38,14 @@ so later features stay consistent.
   gain proportional to EFF and onTime, with a small decay, scaled by `rep_gain_mult`.
 - **Truck arrival "trucks/min/hour scaling".** `CFG_TRUCK_ARRIVAL_RATE` is read as a rate that grows with
   warehouse tier, so demand rises as capacity does and the bottleneck keeps moving.
+- **Save format (§0, feature 2).** The spec only says "local-first, deterministic given seed". Implemented as a
+  versioned envelope (`format` magic string + `version` + `savedAtMs` + a plain-data `SimState`). Unknown
+  versions are rejected with all validation problems listed at once, not migrated or guessed at; a broken save
+  is never half-applied.
+- **`config` inside the §1 warehouse object.** Not persisted. `CFG_*` lives in `src/config/` as the single
+  source of truth (rule 1); a copy in the save would be a second source that could silently disagree.
+- **RNG serialization.** The PRNG state is a plain uint32 in `SimState.rngState`. xorshift has no valid state
+  0, so 0 normalizes to a fixed constant; `initialRngState(seed)` is exported so `startingState` carries the
+  seed's own state and a save written before the first tick resumes the same sequence rather than re-seeding.
+- **Wall-clock time.** `savedAtMs` is supplied by the caller and never read by the sim, keeping `src/sim/`
+  pure (rule 3). Storage adapters live in `src/platform/`; `src/sim/` depends only on the `SaveStore` port.
